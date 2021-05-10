@@ -1,6 +1,6 @@
 #dockercompose
 
-version: '2.1'
+LABEL version: '2.1'
 services:
   mysql:
     container_name: mysql
