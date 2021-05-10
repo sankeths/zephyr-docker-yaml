@@ -1,0 +1,94 @@
+#dockercompose
+
+version: '2.1'
+services:
+  mysql:
+    container_name: mysql
+    image: mysql:5.6.33
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    command:
+      --max-connections=500
+    healthcheck:
+        test: ["CMD-SHELL", "mysqladmin  -uroot -proot ping --silent"]
+        interval: 30s
+        timeout: 30s
+        retries: 3
+    volumes:
+      - mysqldata:/var/lib/mysql
+    networks:
+      - zephyrnetwork
+    # links:
+    #   - mysql:mysqllink
+    tty: true
+    stdin_open: true
+#elasticsearch
+
+  elasticsearch:
+    image: elasticsearch:7.9.2
+    container_name: elasticsearch
+    depends_on:
+      mysql:
+          condition: service_healthy
+    healthcheck:
+        test: ["CMD-SHELL", "curl --silent --fail localhost:9200/_cluster/health || exit 1"]
+        interval: 30s
+        timeout: 30s
+        retries: 3
+    environment:
+      - "ES_JAVA_OPTS=-Xmx2g -Xms2g"
+      - indices.query.bool.max_clause_count=4096
+      - node.name=ES_NODE1
+      - cluster.name=zephyr
+      - "discovery.seed_hosts=elasticsearch"
+      - network.host=elasticsearch
+    ulimits:
+        nofile:
+            soft: 65536
+            hard: 65536
+
+    ports:
+      - 9200:9200
+      - 9300:9300
+    volumes:
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - zephyrnetwork
+    tty: true
+    stdin_open: true
+
+
+#zephyr      
+  zephyr:
+    image: zsdockerbuild/zsdockerimage:ze70
+    container_name: zephyr
+    depends_on:
+      mysql:
+          condition: service_healthy   
+    ports:
+     - "80:80"
+     - "8080:8080"
+    depends_on:
+     - elasticsearch
+    networks:
+     - zephyrnetwork
+    links:
+      - elasticsearch:elasticsearch
+      - mysql:mysql
+    tty: true
+    stdin_open: true
+
+volumes:
+  mysqldata:
+    driver: local
+  esdata:
+    driver: local
+
+networks:
+  zephyrnetwork:
+    driver: bridge
+  zephyrnetwork:
+    driver: bridge
